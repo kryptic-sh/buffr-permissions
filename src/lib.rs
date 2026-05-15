@@ -30,30 +30,42 @@
 //! splitting a bitmask into one row per bit before consulting the
 //! store.
 
+#[cfg(feature = "store")]
 use std::path::Path;
+#[cfg(feature = "store")]
 use std::sync::Mutex;
 
+#[cfg(feature = "store")]
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "store")]
 use tracing::trace;
 
+#[cfg(feature = "store")]
 pub mod schema;
 
 /// Errors surfaced from [`Permissions`].
+///
+/// The variants carrying a `rusqlite::Error` are gated behind the `store`
+/// feature so callers that only use the type surface (`Capability`,
+/// `Decision`) don't pull rusqlite in.
 #[derive(Debug, Error)]
 pub enum PermError {
+    #[cfg(feature = "store")]
     #[error("opening sqlite database failed")]
     Open {
         #[source]
         source: rusqlite::Error,
     },
+    #[cfg(feature = "store")]
     #[error("applying migration v{version} failed")]
     Migrate {
         #[source]
         source: rusqlite::Error,
         version: i64,
     },
+    #[cfg(feature = "store")]
     #[error("query failed")]
     Query {
         #[from]
@@ -156,6 +168,7 @@ pub enum Decision {
 }
 
 impl Decision {
+    #[cfg(feature = "store")]
     fn as_str(self) -> &'static str {
         match self {
             Decision::Allow => "allow",
@@ -163,6 +176,7 @@ impl Decision {
         }
     }
 
+    #[cfg(feature = "store")]
     fn from_str(s: &str) -> Result<Self, PermError> {
         match s {
             "allow" => Ok(Decision::Allow),
@@ -186,10 +200,12 @@ pub struct PermissionRow {
 }
 
 /// SQLite-backed per-origin permissions store.
+#[cfg(feature = "store")]
 pub struct Permissions {
     conn: Mutex<Connection>,
 }
 
+#[cfg(feature = "store")]
 impl Permissions {
     /// Open or create the SQLite database at `path` and run any
     /// pending schema migrations.
@@ -327,6 +343,7 @@ impl Permissions {
     }
 }
 
+#[cfg(feature = "store")]
 fn current_unix_time() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -334,7 +351,7 @@ fn current_unix_time() -> i64 {
         .unwrap_or(0)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "store"))]
 mod tests {
     use super::*;
 
